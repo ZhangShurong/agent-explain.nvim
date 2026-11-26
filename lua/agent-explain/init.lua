@@ -91,7 +91,11 @@ local function open_terminal(input, command, cwd, env, reuse)
     session = nil
   end
   session = session or { snapshots = {}, pending = {} }
-  input = terminal_input(input, session)
+  if not input and session.win and api.nvim_win_is_valid(session.win) then
+    session.close()
+    return
+  end
+  if input then input = terminal_input(input, session) end
   if session.win and api.nvim_win_is_valid(session.win) then api.nvim_win_hide(session.win) end
   local footer = reuse and " Ctrl+E 收起 " or " Ctrl+E 关闭 "
   local buf, win, close = open_float(" " .. vim.fs.basename(command[1]) .. " ", footer, session.buf)
@@ -104,7 +108,7 @@ local function open_terminal(input, command, cwd, env, reuse)
   vim.keymap.set({ "t", "n" }, "<F12>", close, { buffer = buf, desc = "返回代码" })
 
   if session.job then
-    queue_selection(session, input)
+    if input then queue_selection(session, input) end
   else
     api.nvim_create_autocmd("BufWipeout", { buffer = buf, once = true, callback = function()
       if codex_sessions[key] == session then codex_sessions[key] = nil end
@@ -231,12 +235,9 @@ local function open_chat(path, input, command, cwd, env)
   ask()
 end
 
-local function explain()
-  local start, stop = vim.fn.getpos("v"), vim.fn.getpos(".")
-  local lines = vim.fn.getregion(start, stop, {
-    type = vim.fn.mode(),
-    exclusive = vim.o.selection == "exclusive",
-  })
+local function open_agent(with_selection)
+  local stop = vim.fn.getpos(".")
+  local start = with_selection and vim.fn.getpos("v") or stop
   local file = api.nvim_buf_get_name(0)
   local ft = vim.bo.filetype
   local ctx = {
@@ -246,7 +247,11 @@ local function explain()
     first_line = math.min(start[2], stop[2]),
     last_line = math.max(start[2], stop[2]),
   }
-  vim.cmd.normal({ args = { vim.keycode("<Esc>") }, bang = true })
+  local lines
+  if with_selection then
+    lines = vim.fn.getregion(start, stop, { type = vim.fn.mode(), exclusive = vim.o.selection == "exclusive" })
+    vim.cmd.normal({ args = { vim.keycode("<Esc>") }, bang = true })
+  end
   local cwd = options.cwd
   if type(cwd) == "function" then
     cwd = cwd(ctx)
@@ -265,9 +270,12 @@ local function explain()
     env = env(options.agent)
   end
   local path = file ~= "" and (vim.fs.relpath(cwd, file) or file) or "[未命名]"
-  local input = ("%s\n\n文件 %s，第 %d–%d 行（%s）\n\n%s"):format(
-    options.prompt, path, ctx.first_line, ctx.last_line, ft, table.concat(lines, "\n")
-  )
+  local input
+  if lines then
+    input = ("%s\n\n文件 %s，第 %d–%d 行（%s）\n\n%s"):format(
+      options.prompt, path, ctx.first_line, ctx.last_line, ft, table.concat(lines, "\n")
+    )
+  end
 
   if native then
     if options.agent == "dst" then
@@ -287,12 +295,18 @@ function M.setup(opts)
       type(arg) == "string" and vim.fn.isdirectory(arg) == 1 and arg or vim.fn.getcwd(), ":p"
     ))
   end
-  local function on_selection()
-    local ok, err = pcall(explain)
+  local function open(with_selection)
+    local ok, err = pcall(open_agent, with_selection)
     if not ok then vim.notify(tostring(err), vim.log.levels.ERROR) end
   end
-  for _, key in ipairs({ "?", "？" }) do
-    vim.keymap.set("x", key, on_selection, { desc = "用本地 agent 解释选区" })
+  local toggle_desc = "显示或隐藏项目 Codex"
+  if options.agent == "codex" and (options.ui == nil or options.ui == "native") then
+    vim.keymap.set("n", "<C-e>", function() open(false) end, { desc = toggle_desc })
+  elseif vim.fn.maparg("<C-e>", "n", false, true).desc == toggle_desc then
+    vim.keymap.del("n", "<C-e>")
+  end
+  for _, key in ipairs({ "?", "？", "<C-e>" }) do
+    vim.keymap.set("x", key, function() open(true) end, { desc = "用本地 agent 解释选区" })
   end
 end
 
