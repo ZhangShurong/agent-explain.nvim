@@ -19,7 +19,7 @@ return {
 
 ## 配置
 
-默认调用 `dst dsh headless --permission-mode read-only --approval-policy never -`。找不到 `dst` 时调用同一工具的 `dsh-tui` 入口。插件通过随附的 DSH patch 启用本机凭据服务，以便 headless profile 使用已保存的 DeepSeek 登录凭据或环境变量。TraeX 和 Codex 使用各自的本机登录与模型设置，以只读、一次性会话运行，也支持在 Git 仓库之外使用。插件通过标准输入发送提示词、文件名、行号及当前缓冲区的选区，从标准输出读取回答。
+默认使用本机 Codex（`codex exec`）。选择 `dst` 时调用 `dst dsh headless --permission-mode read-only --approval-policy never -`。找不到 `dst` 时调用同一工具的 `dsh-tui` 入口。插件通过随附的 DSH patch 启用本机凭据服务，以便 headless profile 使用已保存的 DeepSeek 登录凭据或环境变量。TraeX 和 Codex 使用各自的本机登录与模型设置，以只读、一次性会话运行，也支持在 Git 仓库之外使用。插件通过标准输入发送提示词、文件名、行号及当前缓冲区的选区，从标准输出读取回答。
 
 默认工作目录取启动时的第一个目录参数。例如 `nvim ./oec/` 打开后，即使正在查看 `oec/seller_im_card/main.go`，agent 仍在 `oec` 中运行。首个参数为文件或没有参数时，使用插件启动时的工作目录。保持 `lazy = false` 以便在启动时记录目录。
 
@@ -27,7 +27,7 @@ return {
 
 ```lua
 opts = {
-  agent = "dst", -- 也可以选 "traex" 或 "codex"
+  agent = "codex", -- 也可以选 "dst" 或 "traex"
   prompt = "用中文说明这段代码的目的、关键分支和副作用。必要时读取相关定义。",
   cwd = "..",
 }
