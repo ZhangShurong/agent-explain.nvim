@@ -41,12 +41,13 @@ local function open_float(title, footer)
     if focused and api.nvim_win_is_valid(source_win) then api.nvim_set_current_win(source_win) end
   end
   vim.keymap.set("n", "q", close, { buffer = buf, desc = "关闭解释", nowait = true })
+  vim.keymap.set("n", "<C-e>", close, { buffer = buf, desc = "关闭解释", nowait = true })
   return buf, win, close
 end
 
 local function open_terminal(input, command, cwd, env)
   if vim.fn.executable(command[1]) ~= 1 then error("找不到可执行文件 " .. command[1]) end
-  local buf, win, close = open_float(" " .. vim.fs.basename(command[1]) .. " ", " F12 关闭 ")
+  local buf, win, close = open_float(" " .. vim.fs.basename(command[1]) .. " ", " Ctrl+E 关闭 ")
   local snapshot
   -- A single argv entry has an OS size limit. Keep large or binary selections intact.
   if #input > 96 * 1024 or input:find("%z") then
@@ -75,12 +76,13 @@ local function open_terminal(input, command, cwd, env)
     error("无法启动 " .. command[1] .. " (" .. tostring(id) .. ")")
   end
   job = id
+  vim.keymap.set("t", "<C-e>", close, { buffer = buf, desc = "关闭 agent 对话", nowait = true })
   vim.keymap.set({ "t", "n" }, "<F12>", close, { buffer = buf, desc = "关闭 agent 对话" })
   if api.nvim_get_current_win() == win then vim.cmd.startinsert() end
 end
 
 local function open_chat(path, input, command, cwd, env)
-  local buf, win = open_float(" 代码解释 ", " f 追问 · q 关闭 ")
+  local buf, win = open_float(" 代码解释 ", " f 追问 · Ctrl+E 关闭 ")
   local width, height = api.nvim_win_get_width(win), api.nvim_win_get_height(win)
   vim.bo[buf].filetype = "markdown"
   vim.wo[win].wrap = true
